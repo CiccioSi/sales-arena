@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101629">
+<title>SALES ARENA</title>
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:#101629;color:#f5f7fb;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+header{text-align:center;padding:18px 0 12px}
+h1{margin:0;color:#ffd34e;font-size:clamp(30px,8vw,44px);letter-spacing:1px}
+header p,.muted{color:#b8c4dc}
+main{max-width:850px;margin:auto}
+.card{background:#1c2943;border:1px solid #2c3b59;border-radius:16px;padding:16px;margin:14px 0}
+h2{font-size:20px;margin:0 0 14px}
+label{display:block;margin:8px 0 5px;color:#dce4f4;font-size:14px}
+input,select,button{font:inherit;border-radius:10px;padding:12px;border:0}
+input,select{width:100%;background:#fff;color:#172039;margin-bottom:10px}
+button{background:#ffd34e;color:#172039;font-weight:750;cursor:pointer}
+button.secondary{background:#354765;color:white}
+button.danger{background:#a83c50;color:white}
+button:focus,input:focus,select:focus{outline:3px solid #88b7ff;outline-offset:2px}
+.grid{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}
+.grid button{margin-bottom:10px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row button{flex:1}
+#ranking .rank{display:grid;grid-template-columns:32px 1fr auto;gap:8px;align-items:center;padding:11px 2px;border-bottom:1px solid #354765}
+.rank strong{color:#ffd34e}
+.rank small{display:block;color:#aebbd2}
+#board{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px}
+.cell{min-height:48px;background:#354765;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-direction:column;font-size:11px;position:relative;overflow:hidden}
+.cell.special{background:#775a26}.cell.finish{background:#a17b16}
+.cell b{font-size:13px}.pawns{font-size:13px;min-height:15px}
+#message{color:#ffd34e;min-height:22px}
+.small{font-size:12px;color:#b8c4dc;line-height:1.5}
+@media(max-width:420px){body{padding:10px}.card{padding:13px}.cell{min-height:40px;font-size:10px}.cell b{font-size:11px}#board{gap:3px}}
+</style>
+</head>
+<body>
+<main>
+<header><h1>🏆 SALES ARENA</h1><p>La sfida dei campioni delle vendite</p></header>
+
+<section class="card">
+<h2>👥 Aggiungi venditore</h2>
+<div class="grid">
+<div><label for="sellerName">Nome venditore</label><input id="sellerName" placeholder="Es. Giulia" maxlength="40"></div>
+<button onclick="addSeller()">Aggiungi</button>
+</div>
+<div id="sellers" class="small"></div>
+</section>
+
+<section class="card">
+<h2>💰 Registra una vendita</h2>
+<label for="sellerSelect">Venditore</label><select id="sellerSelect"></select>
+<label for="amount">Importo vendita (€)</label><input id="amount" type="number" min="0.01" step="0.01" placeholder="Es. 150">
+<button style="width:100%" onclick="addSale()">REGISTRA VENDITA 🚀</button>
+<p class="small">Punteggio: 10 punti per ogni vendita + 1 punto ogni 10 € di incasso.</p>
+<p id="message" aria-live="polite"></p>
+</section>
+
+<section class="card">
+<h2>🥇 Classifica</h2><div id="ranking">Aggiungi il primo venditore per iniziare.</div>
+</section>
+
+<section class="card">
+<h2>🎲 Tabellone dei campioni</h2>
+<p class="small">Ogni 25 punti si avanza di una casella. Le caselle dorate sono speciali.</p>
+<div id="board"></div>
+</section>
+
+<section class="card">
+<h2>📊 Regole del gioco</h2>
+<p>🛍️ Ogni vendita: 10 punti</p><p>💶 Ogni 10 € di incasso: 1 punto</p>
+<p>🎲 Ogni 25 punti: avanzi di una casella</p><p>🏆 Obiettivo: raggiungere la casella 70</p>
+<div class="row"><button class="secondary" onclick="exportData()">Esporta dati</button><button class="danger" onclick="resetGame()">Azzera dati</button></div>
+<p class="small">Questa versione salva i dati nel browser del dispositivo. Non è ancora sincronizzata tra telefoni e non protegge l'area del responsabile con una password. Usala solo per prove.</p>
+</section>
+</main>
+<script>
+"use strict";
+let sellers=[];
+try{sellers=JSON.parse(localStorage.getItem("arenaSellers")||"[]");if(!Array.isArray(sellers))sellers=[];}catch(e){sellers=[];}
+const colors=["🔴","🔵","🟢","🟡","🟣","🟠","⚫","🩷","🟤","⚪"];
+function save(){try{localStorage.setItem("arenaSellers",JSON.stringify(sellers));}catch(e){alert("Impossibile salvare i dati su questo dispositivo.");}render();}
+function addSeller(){
+ const field=document.getElementById("sellerName"),name=field.value.trim();
+ if(!name){alert("Inserisci il nome del venditore.");return;}
+ if(sellers.some(s=>s.name.toLowerCase()===name.toLowerCase())){alert("Questo venditore esiste già.");return;}
+ sellers.push({name,points:0,sales:0,revenue:0});field.value="";save();
+}
+function addSale(){
+ const index=Number(document.getElementById("sellerSelect").value),amount=Number(document.getElementById("amount").value);
+ if(!sellers.length){alert("Aggiungi prima un venditore.");return;}
+ if(!Number.isFinite(amount)||amount<=0){alert("Inserisci un importo valido.");return;}
+ const points=10+Math.floor(amount/10);
+ sellers[index].points+=points;sellers[index].sales+=1;sellers[index].revenue+=amount;
+ document.getElementById("amount").value="";
+ document.getElementById("message").textContent="Vendita registrata: +"+points+" punti a "+sellers[index].name+"!";
+ save();
+}
+function escapeHTML(value){return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function removeSeller(i){if(confirm("Rimuovere "+sellers[i].name+" e tutti i suoi dati?")){sellers.splice(i,1);save();}}
+function render(){
+ const sorted=[...sellers].sort((a,b)=>b.points-a.points);
+ document.getElementById("sellers").innerHTML=sellers.map((s,i)=>`${colors[i%colors.length]} ${escapeHTML(s.name)} <button class="secondary" style="padding:5px 8px;font-size:12px" onclick="removeSeller(${i})">Rimuovi</button>`).join("<br>");
+ document.getElementById("sellerSelect").innerHTML=sellers.map((s,i)=>`<option value="${i}">${escapeHTML(s.name)}</option>`).join("");
+ document.getElementById("ranking").innerHTML=sorted.length?sorted.map((s,i)=>`<div class="rank"><span>${["🥇","🥈","🥉"][i]||"🏅"}</span><span>${escapeHTML(s.name)}<small>${s.sales} vendite · ${s.revenue.toFixed(2)} €</small></span><strong>${s.points} pt</strong></div>`).join(""):"Ancora nessun venditore.";
+ drawBoard();
+}
+function drawBoard(){
+ const board=document.getElementById("board");board.innerHTML="";
+ for(let row=6;row>=0;row--){
+  let nums=Array.from({length:10},(_,i)=>row*10+i+1);if(row%2===1)nums.reverse();
+  nums.forEach(n=>{
+   const cell=document.createElement("div");cell.className="cell"+([10,20,30,40,50,60].includes(n)?" special":"")+(n===70?" finish":"");
+   const pawns=sellers.map((s,i)=>({s,i,pos:Math.min(70,Math.floor(s.points/25))})).filter(x=>x.pos===n).map(x=>colors[x.i%colors.length]).join("");
+   cell.innerHTML=`<span>${n===70?"🏆":([10,20,30,40,50,60].includes(n)?"⭐":"")}</span><b>${n}</b><span class="pawns">${pawns}</span>`;
+   board.appendChild(cell);
+  });
+ }
+}
+function resetGame(){if(confirm("Vuoi cancellare tutti i venditori e tutte le vendite salvate su questo dispositivo?")){sellers=[];save();document.getElementById("message").textContent="Dati azzerati.";}}
+function exportData(){
+ const blob=new Blob([JSON.stringify(sellers,null,2)],{type:"application/json"});
+ const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="sales-arena-dati.json";a.click();URL.revokeObjectURL(url);
+}
+render();
+</script>
+</body>
+</html>
